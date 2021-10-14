@@ -1,5 +1,16 @@
+/* eslint-disable camelcase */
 const properties = require('./json/properties.json');
 const users = require('./json/users.json');
+const { Pool } = require('pg');
+
+// connect to DB
+const pool = new Pool({
+  user: 'labber',
+  password: 'labber',
+  host: 'localhost',
+  database: 'lightbnb',
+  port: 5432,
+});
 
 /// Users
 
@@ -9,17 +20,28 @@ const users = require('./json/users.json');
  * @return {Promise<{}>} A promise to the user.
  */
 const getUserWithEmail = function(email) {
-  let user;
-  for (const userId in users) {
-    user = users[userId];
-    if (user.email.toLowerCase() === email.toLowerCase()) {
-      break;
-    } else {
-      user = null;
-    }
-  }
-  return Promise.resolve(user);
-}
+  const queryStr = `
+    SELECT *
+    FROM users
+    WHERE email = $1
+  `;
+
+  return pool
+    .query(queryStr, [email])
+    .then((result) => {
+      console.log('Line 32: This is log for getUserEmail:', result.rows[0]);
+      // if conditon here for result.rows.length !== 0, resolve
+      if (result.rows.length !== 0) {
+        return result.rows[0];
+      }
+      // else return NULL
+      console.log('Line 38: Returned NULL because no user in DB');
+      return null;
+    })
+    .catch((err) => {
+      console.log(err.message);
+    });
+};
 exports.getUserWithEmail = getUserWithEmail;
 
 /**
@@ -28,8 +50,28 @@ exports.getUserWithEmail = getUserWithEmail;
  * @return {Promise<{}>} A promise to the user.
  */
 const getUserWithId = function(id) {
-  return Promise.resolve(users[id]);
-}
+  const queryStr = `
+    SELECT *
+    FROM users
+    WHERE id = $1
+  `;
+
+  return pool
+    .query(queryStr, [id])
+    .then((result) => {
+      console.log('Line 33: This is log for getUserWithId:', result.rows[0]);
+      // if conditon here for result.rows.length !== 0, resolve
+      if (result.rows.length !== 0) {
+        return result.rows[0];
+      }
+      // else return NULL
+      console.log('Returned NULL because no ID in DB');
+      return null;
+    })
+    .catch((err) => {
+      console.log(err.message);
+    });
+};
 exports.getUserWithId = getUserWithId;
 
 
@@ -39,11 +81,26 @@ exports.getUserWithId = getUserWithId;
  * @return {Promise<{}>} A promise to the user.
  */
 const addUser =  function(user) {
-  const userId = Object.keys(users).length + 1;
-  user.id = userId;
-  users[userId] = user;
-  return Promise.resolve(user);
-}
+  console.log('user object: ', user);
+  const queryStr = `
+    INSERT INTO users 
+      (name, email, password)
+    VALUES 
+      ($1, $2, $3)
+    RETURNING
+      *
+  `;
+
+  return pool
+    .query(queryStr, [user.name, user.email, user.password])
+    .then((result) => {
+      console.log('This user was inserted into DB:', result);
+      return result;
+    })
+    .catch((err) => {
+      console.log(err.message);
+    });
+};
 exports.addUser = addUser;
 
 /// Reservations
@@ -55,7 +112,7 @@ exports.addUser = addUser;
  */
 const getAllReservations = function(guest_id, limit = 10) {
   return getAllProperties(null, 2);
-}
+};
 exports.getAllReservations = getAllReservations;
 
 /// Properties
@@ -67,12 +124,21 @@ exports.getAllReservations = getAllReservations;
  * @return {Promise<[{}]>}  A promise to the properties.
  */
 const getAllProperties = function(options, limit = 10) {
-  const limitedProperties = {};
-  for (let i = 1; i <= limit; i++) {
-    limitedProperties[i] = properties[i];
-  }
-  return Promise.resolve(limitedProperties);
-}
+  const queryStr = `
+    SELECT *
+    FROM properties
+    LIMIT $1
+  `;
+
+  return pool
+    .query(queryStr, [limit])
+    .then((result) => {
+      console.log(result.rows);
+    })
+    .catch((err) => {
+      console.log(err.message);
+    });
+};
 exports.getAllProperties = getAllProperties;
 
 
@@ -86,5 +152,5 @@ const addProperty = function(property) {
   property.id = propertyId;
   properties[propertyId] = property;
   return Promise.resolve(property);
-}
+};
 exports.addProperty = addProperty;
